@@ -1,7 +1,10 @@
 import configparser
 from dataclasses import dataclass, field
+from pathlib import Path
 
 TIERS = ("light", "basic", "full")
+_tier_file = Path(__file__).with_name("TIER")
+BUILT_TIER = _tier_file.read_text().strip() if _tier_file.exists() else None
 
 
 @dataclass
@@ -29,13 +32,15 @@ def load(path):
         raise SystemExit(f"config not found: {path}")
     s = cp["streamer"] if cp.has_section("streamer") else {}
     cfg = Config(
-        tier=s.get("tier", "basic").strip().lower(),
+        tier=s.get("tier", BUILT_TIER or "basic").strip().lower(),
         moonraker=s.get("moonraker", "http://127.0.0.1:7125").strip(),
         host=s.get("host", "auto").strip(),
         log_level=s.get("log_level", "info").strip().lower(),
     )
     if cfg.tier not in TIERS:
         raise SystemExit(f"tier must be one of {', '.join(TIERS)}, not {cfg.tier!r}")
+    if BUILT_TIER in TIERS and TIERS.index(cfg.tier) > TIERS.index(BUILT_TIER):
+        raise SystemExit(f"this is the {BUILT_TIER} package; the {cfg.tier} tier needs the {cfg.tier} package")
     for sec in cp.sections():
         if not sec.lower().startswith("cam"):
             continue

@@ -1,0 +1,5 @@
+{
+  "light": {"files": ["streamer", "streamer.conf.example", "README.md"]},
+  "basic": {"files": ["streamer", "streamer.conf.example", "README.md"]},
+  "full":  {"files": ["streamer", "streamer.conf.example", "README.md"]}
+}

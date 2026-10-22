@@ -1,0 +1,45 @@
+name: release
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Anything new since the last nightly?
+        id: check
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ] || [ "$(git rev-list -n1 nightly 2>/dev/null)" != "$(git rev-parse HEAD)" ]; then
+            echo "go=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build tier packages
+        if: steps.check.outputs.go == '1'
+        run: python3 tools/build.py dist
+
+      - name: Publish nightly
+        if: steps.check.outputs.go == '1' && github.ref_type != 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete nightly --yes --cleanup-tag || true
+          gh release create nightly dist/* --prerelease --target "$GITHUB_SHA" \
+            --title "Nightly $(date -u +%Y-%m-%d)" --notes "Built from $(git rev-parse --short HEAD)."
+
+      - name: Publish stable
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
