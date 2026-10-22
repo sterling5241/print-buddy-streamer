@@ -4,11 +4,15 @@ on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      version:
+        description: Stable version to release, e.g. 1.2 (empty = nightly)
+        required: false
   push:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   PART: streamer
@@ -21,26 +25,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Anything new since the last nightly?
+      - name: Stable or nightly?
         id: check
+        env:
+          WANT: ${{ inputs.version }}
         run: |
-          if [ "$GITHUB_REF_TYPE" = tag ] || ! gh release view "$PART-nightly" --repo "$MAIN_REPO" --json body -q .body 2>/dev/null | grep -q "$GITHUB_SHA"; then
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "version=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "go=1" >> "$GITHUB_OUTPUT"
+          elif [ -n "$WANT" ]; then
+            echo "version=v${WANT#v}" >> "$GITHUB_OUTPUT"
+            echo "go=1" >> "$GITHUB_OUTPUT"
+          elif ! gh release view "$PART-nightly" --repo "$MAIN_REPO" --json body -q .body 2>/dev/null | grep -q "$GITHUB_SHA"; then
             echo "go=1" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Release notes
+        if: steps.check.outputs.go == '1'
+        run: |
+          echo "Built from $GITHUB_REPOSITORY@$GITHUB_SHA" > notes.md
+          needs="$(grep -v '^\s*#' needs.txt 2>/dev/null | grep . | paste -sd, - | sed 's/,/, /g' || true)"
+          if [ -n "$needs" ]; then printf '\nneeds: %s\n' "$needs" >> notes.md; fi
+
+      - name: Tag this repo
+        if: inputs.version != '' && github.ref_type != 'tag'
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          git tag "$VERSION"
+          git push origin "$VERSION"
 
       - name: Build packages
         if: steps.check.outputs.go == '1'
         run: python3 tools/build.py dist
 
       - name: Publish nightly
-        if: steps.check.outputs.go == '1' && github.ref_type != 'tag'
+        if: steps.check.outputs.go == '1' && steps.check.outputs.version == ''
         run: |
           gh release delete "$PART-nightly" --repo "$MAIN_REPO" --yes --cleanup-tag || true
           gh release create "$PART-nightly" dist/* --repo "$MAIN_REPO" --prerelease \
-            --title "$PART nightly $(date -u +%Y-%m-%d)" --notes "Built from $GITHUB_REPOSITORY@$GITHUB_SHA"
+            --title "$PART nightly $(date -u +%Y-%m-%d)" --notes-file notes.md
 
       - name: Publish stable
-        if: github.ref_type == 'tag'
+        if: steps.check.outputs.version != ''
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
         run: |
-          gh release create "$PART-$GITHUB_REF_NAME" dist/* --repo "$MAIN_REPO" --latest=false \
-            --title "$PART $GITHUB_REF_NAME" --notes "Built from $GITHUB_REPOSITORY@$GITHUB_SHA"
+          gh release create "$PART-$VERSION" dist/* --repo "$MAIN_REPO" --latest=false \
+            --title "$PART $VERSION" --notes-file notes.md
