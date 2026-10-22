@@ -8,38 +8,39 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  PART: streamer
+  MAIN_REPO: sterling5241/printer-buddy
+  GH_TOKEN: ${{ secrets.MAIN_REPO_TOKEN }}
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Anything new since the last nightly?
         id: check
         run: |
-          if [ "$GITHUB_REF_TYPE" = tag ] || [ "$(git rev-list -n1 nightly 2>/dev/null)" != "$(git rev-parse HEAD)" ]; then
+          if [ "$GITHUB_REF_TYPE" = tag ] || ! gh release view "$PART-nightly" --repo "$MAIN_REPO" --json body -q .body 2>/dev/null | grep -q "$GITHUB_SHA"; then
             echo "go=1" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build tier packages
+      - name: Build packages
         if: steps.check.outputs.go == '1'
         run: python3 tools/build.py dist
 
       - name: Publish nightly
         if: steps.check.outputs.go == '1' && github.ref_type != 'tag'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete nightly --yes --cleanup-tag || true
-          gh release create nightly dist/* --prerelease --target "$GITHUB_SHA" \
-            --title "Nightly $(date -u +%Y-%m-%d)" --notes "Built from $(git rev-parse --short HEAD)."
+          gh release delete "$PART-nightly" --repo "$MAIN_REPO" --yes --cleanup-tag || true
+          gh release create "$PART-nightly" dist/* --repo "$MAIN_REPO" --prerelease \
+            --title "$PART nightly $(date -u +%Y-%m-%d)" --notes "Built from $GITHUB_REPOSITORY@$GITHUB_SHA"
 
       - name: Publish stable
         if: github.ref_type == 'tag'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          gh release create "$PART-$GITHUB_REF_NAME" dist/* --repo "$MAIN_REPO" --latest=false \
+            --title "$PART $GITHUB_REF_NAME" --notes "Built from $GITHUB_REPOSITORY@$GITHUB_SHA"
