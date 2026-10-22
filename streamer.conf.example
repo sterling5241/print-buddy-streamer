@@ -1,0 +1,16 @@
+[streamer]
+tier: basic                          # light | basic | full
+moonraker: http://127.0.0.1:7125     # empty = don't add the cameras to Moonraker
+host: auto                           # address put in the camera URLs; auto = this machine's LAN IP
+log_level: info                      # debug | info | warning
+
+# No [cam] sections = every camera found is streamed (light: only the first).
+# device: auto | /dev/v4l/by-id/... | libcamera | rtsp://... (full only)
+
+[cam 1]
+name: cam1
+device: auto
+port: 8080                           # light / basic: http://<host>:8080/stream and /snapshot
+resolution: 1280x720
+fps: 15
+flags:                               # extra ustreamer options (light / basic)
