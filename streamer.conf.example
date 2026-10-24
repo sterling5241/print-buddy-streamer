@@ -10,7 +10,7 @@ log_level: info                      # debug | info | warning
 [cam 1]
 name: cam1
 device: auto
-port: 8081                           # light / basic: http://<host>:8081/stream and /snapshot
+port: 8081                           # USB / Pi cameras: http://<host>:8081/stream and /snapshot
 resolution: 1280x720
 fps: 15
-flags:                               # extra ustreamer options (light / basic)
+flags:                               # extra ustreamer options (USB / Pi cameras)

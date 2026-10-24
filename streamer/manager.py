@@ -27,7 +27,7 @@ def resolve(cfg):
             device = free.pop(0)
         elif device in free:
             free.remove(device)
-        if device.startswith(("rtsp://", "rtsps://", "http://", "https://")) and cfg.tier != "full":
+        if backends.is_network(device) and cfg.tier != "full":
             log.warning("%s: network cameras need the full tier, skipped", cam.name)
             continue
         out.append((cam, device))
@@ -41,9 +41,10 @@ def jobs(cfg, config_dir):
     cams = resolve(cfg)
     if not cams:
         return []
+    out = [backends.ustreamer(cam, device, host) for cam, device in cams if not backends.is_network(device)]
     if cfg.tier == "full":
-        return [backends.go2rtc(cams, host, os.path.join(config_dir, "go2rtc.yaml"))]
-    return [backends.ustreamer(cam, device, host) for cam, device in cams]
+        out.append(backends.go2rtc(cams, host, os.path.join(config_dir, "go2rtc.yaml")))
+    return out
 
 
 class Supervisor:

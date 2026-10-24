@@ -29,15 +29,15 @@ def ustreamer(cam, device, host):
     return Job(cam.name, cmd, [(cam.name, "mjpegstreamer-adaptive", f"{base}/stream", f"{base}/snapshot", cam.fps)])
 
 
+def is_network(device):
+    return device.startswith(("rtsp://", "rtsps://", "http://", "https://"))
+
+
 def go2rtc_source(cam, device):
-    w, h = cam.resolution.lower().split("x")
-    if device.startswith(("rtsp://", "rtsps://", "http://", "https://")):
+    if is_network(device):
         return device
-    if device == "libcamera":
-        return (f"exec:rpicam-vid -t 0 -n --inline --codec h264 --width {w} --height {h} "
-                f"--framerate {cam.fps} -o -")
-    fmt = "&input_format=mjpeg" if detect.has_mjpeg(device) else ""
-    return f"ffmpeg:device?video={device}{fmt}&video_size={w}x{h}&framerate={cam.fps}#video=h264"
+    # local cameras are read from their ustreamer, not the device
+    return f"ffmpeg:http://127.0.0.1:{cam.port}/stream#video=h264"
 
 
 def go2rtc(cams, host, config_path):
@@ -46,6 +46,8 @@ def go2rtc(cams, host, config_path):
     webcams = []
     for cam, device in cams:
         lines.append(f"  {cam.name}: {go2rtc_source(cam, device)}")
+        if not is_network(device):
+            continue
         base = f"http://{host}:{GO2RTC_API}/api"
         webcams.append((cam.name, "webrtc-go2rtc", f"{base}/webrtc?src={cam.name}", f"{base}/frame.jpeg?src={cam.name}", cam.fps))
     with open(config_path, "w", encoding="utf-8") as f:
