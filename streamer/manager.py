@@ -10,6 +10,7 @@ from .config import Cam
 
 log = logging.getLogger("streamer")
 BACKOFF = (2, 5, 10, 30)
+FPS_POLL = 30
 
 
 def resolve(cfg):
@@ -36,11 +37,13 @@ def resolve(cfg):
     return out
 
 
-def jobs(cfg, config_dir):
+def jobs(cfg, config_dir, fps=None):
     host = detect.local_ip() if cfg.host == "auto" else cfg.host
     cams = resolve(cfg)
     if not cams:
         return []
+    for cam, _ in cams:
+        cam.fps = (fps or {}).get(cam.name, cam.fps)
     out = [backends.ustreamer(cam, device, host) for cam, device in cams if not backends.is_network(device)]
     if cfg.tier == "full":
         out.append(backends.go2rtc(cams, host, os.path.join(config_dir, "go2rtc.yaml")))
@@ -52,9 +55,9 @@ class Supervisor:
         self.cfg, self.config_dir = cfg, config_dir
         self.stop = threading.Event()
 
-    def _run(self, job):
+    def _run(self, job, done):
         fails = 0
-        while not self.stop.is_set():
+        while not done.is_set():
             log.info("%s: starting %s", job.name, " ".join(job.cmd))
             started = time.monotonic()
             try:
@@ -62,7 +65,7 @@ class Supervisor:
             except OSError as ex:
                 log.error("%s: can't start %s (%s)", job.name, job.cmd[0], ex)
                 proc = None
-            while proc and proc.poll() is None and not self.stop.is_set():
+            while proc and proc.poll() is None and not done.is_set():
                 time.sleep(1)
             if proc and proc.poll() is None:
                 proc.terminate()
@@ -75,28 +78,50 @@ class Supervisor:
             fails = 0 if time.monotonic() - started > 60 else fails + 1
             wait = BACKOFF[min(fails, len(BACKOFF) - 1)]
             log.warning("%s: stopped (exit %s), restarting in %ss", job.name, proc.returncode if proc else "-", wait)
-            self.stop.wait(wait)
+            done.wait(wait)
 
     def _register(self, webcams):
         while not self.stop.is_set() and not moonraker.register(self.cfg.moonraker, webcams):
             self.stop.wait(30)
 
-    def run(self):
-        todo = jobs(self.cfg, self.config_dir)
-        if not todo:
-            log.error("nothing to stream: no cameras found or configured (run with --list to see what's detected)")
-            return 1
-        signal.signal(signal.SIGTERM, lambda *_: self.stop.set())
-        threads = [threading.Thread(target=self._run, args=(j,), daemon=True) for j in todo]
+    def _fps(self):
+        return moonraker.target_fps(self.cfg.moonraker) if self.cfg.moonraker else {}
+
+    def _start(self, todo, done):
+        threads = [threading.Thread(target=self._run, args=(j, done), daemon=True) for j in todo]
         if self.cfg.moonraker:
             threads.append(threading.Thread(target=self._register, args=([w for j in todo for w in j.webcams],), daemon=True))
         for t in threads:
             t.start()
+        return threads
+
+    def run(self):
+        fps = self._fps()
+        todo = jobs(self.cfg, self.config_dir, fps)
+        if not todo:
+            log.error("nothing to stream: no cameras found or configured (run with --list to see what's detected)")
+            return 1
+        signal.signal(signal.SIGTERM, lambda *_: self.stop.set())
+        done = threading.Event()
+        threads = self._start(todo, done)
+        used = {w[0]: w[4] for j in todo for w in j.webcams}
         try:
-            while not self.stop.is_set():
-                self.stop.wait(1)
+            while not self.stop.wait(FPS_POLL):
+                new = self._fps()
+                if not any(name in new and new[name] != f for name, f in used.items()):
+                    continue
+                log.info("FPS changed in Moonraker, restarting the cameras")
+                done.set()
+                for t in threads:
+                    t.join(15)
+                fps.update(new)
+                todo = jobs(self.cfg, self.config_dir, fps)
+                done = threading.Event()
+                threads = self._start(todo, done)
+                used = {w[0]: w[4] for j in todo for w in j.webcams}
         except KeyboardInterrupt:
             self.stop.set()
+        done.set()
         for t in threads:
             t.join(15)
         return 0

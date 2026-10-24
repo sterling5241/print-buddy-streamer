@@ -13,6 +13,15 @@ def _call(base, method, path, body=None):
         return json.load(r).get("result", {})
 
 
+def target_fps(base):
+    """name -> target_fps of the cameras in Moonraker, so an FPS set in Fluidd / Mainsail / Printer Buddy is used."""
+    try:
+        cams = _call(base, "GET", "/server/webcams/list").get("webcams", [])
+    except (OSError, ValueError):
+        return {}
+    return {w["name"]: int(w["target_fps"]) for w in cams if w.get("name") and w.get("target_fps")}
+
+
 def register(base, webcams):
     """Add or update each camera in Moonraker's webcam list. True once all are in."""
     try:
@@ -20,6 +29,8 @@ def register(base, webcams):
         for name, service, stream, snapshot, fps in webcams:
             item = {"name": name, "service": service, "stream_url": stream, "snapshot_url": snapshot,
                     "target_fps": fps, "enabled": True, "location": "printer"}
+            if existing.get(name, {}).get("target_fps"):
+                item["target_fps"] = existing[name]["target_fps"]
             if existing.get(name, {}).get("uid"):
                 item["uid"] = existing[name]["uid"]
             _call(base, "POST", "/server/webcams/item", item)
