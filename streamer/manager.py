@@ -16,7 +16,7 @@ def resolve(cfg):
     """[(cam, device)] for the tier: configured cams with 'auto' devices filled in, or one per detected camera."""
     usb, pi = detect.usb_cameras(), detect.libcamera_count()
     free = list(usb) + (["libcamera"] if pi else [])
-    cams = cfg.cams or [Cam(name=f"cam{i + 1}", port=8080 + i) for i in range(len(free))]
+    cams = cfg.cams or [Cam(name=f"cam{i + 1}", port=8081 + i) for i in range(len(free))]
     out = []
     for cam in cams:
         device = cam.device

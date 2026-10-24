@@ -11,7 +11,7 @@ BUILT_TIER = _tier_file.read_text().strip() if _tier_file.exists() else None
 class Cam:
     name: str
     device: str = "auto"
-    port: int = 8080
+    port: int = 8081
     resolution: str = "1280x720"
     fps: int = 15
     flags: str = ""
@@ -48,7 +48,7 @@ def load(path):
         cfg.cams.append(Cam(
             name=c.get("name", f"cam{i + 1}").strip(),
             device=c.get("device", "auto").strip(),
-            port=c.getint("port", 8080 + i),
+            port=c.getint("port", 8081 + i),
             resolution=c.get("resolution", "1280x720").strip(),
             fps=c.getint("fps", 15),
             flags=c.get("flags", "").strip(),
