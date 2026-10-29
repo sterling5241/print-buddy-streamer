@@ -29,6 +29,9 @@ jobs:
           mkdir out
           docker run --rm --platform ${{ matrix.platform }} -v "$PWD/out:/out" debian:bullseye bash -c '
             set -e
+            echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list
+            echo "deb http://archive.debian.org/debian-security bullseye-security main" >> /etc/apt/sources.list
+            echo "Acquire::Check-Valid-Until false;" > /etc/apt/apt.conf.d/99archive
             apt-get update -q
             apt-get install -y -q build-essential cmake git libjpeg62-turbo-dev libv4l-dev
             git clone --depth 1 https://github.com/jacksonliam/mjpg-streamer.git
