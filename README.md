@@ -24,7 +24,7 @@ Moonraker is running on the same machine.
 
 ## Needs
 
-- light: `mjpg_streamer` (prebuilt, from this repo's `mjpg-streamer` release), `libjpeg62-turbo`, `v4l2-ctl` (v4l-utils)
+- light: `mjpg_streamer` (prebuilt, from this repo's `mjpg-streamer` release, with the JPEG library it needs), `v4l2-ctl` (v4l-utils)
 - basic: `ustreamer`, `v4l2-ctl` (v4l-utils)
 - advanced: `ustreamer`, `v4l2-ctl`, `go2rtc`, `ffmpeg`; Pi cameras also `libcamerify` (libcamera-tools) and `rpicam-vid`
 

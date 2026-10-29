@@ -21,7 +21,7 @@ python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' || { echo "The stre
 echo "Installing packages (sudo may ask for your password)..."
 pkgs="git v4l-utils"
 case "$tier" in
-  light) pkgs="$pkgs libjpeg62-turbo" ;;
+  light) ;;
   basic) pkgs="$pkgs ustreamer" ;;
   advanced) pkgs="$pkgs ustreamer libcamera-tools ffmpeg" ;;
 esac

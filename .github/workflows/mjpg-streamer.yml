@@ -37,6 +37,7 @@ jobs:
             mkdir /pkg
             cp mjpg_streamer input_uvc.so output_http.so /pkg/
             cp -r www /pkg/www
+            cp -L /usr/lib/*/libjpeg.so.62 /pkg/
             tar -czf /out/mjpg-streamer-${{ matrix.arch }}.tar.gz --transform "s,^pkg,mjpg-streamer," -C / pkg
           '
 
