@@ -1,0 +1,64 @@
+name: mjpg-streamer
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/mjpg-streamer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+          - arch: armhf
+            platform: linux/arm/v7
+    steps:
+      - uses: docker/setup-qemu-action@v3
+
+      - name: Build
+        run: |
+          mkdir out
+          docker run --rm --platform ${{ matrix.platform }} -v "$PWD/out:/out" debian:bullseye bash -c '
+            set -e
+            apt-get update -q
+            apt-get install -y -q build-essential cmake git libjpeg62-turbo-dev libv4l-dev
+            git clone --depth 1 https://github.com/jacksonliam/mjpg-streamer.git
+            cd mjpg-streamer/mjpg-streamer-experimental
+            make
+            mkdir /pkg
+            cp mjpg_streamer input_uvc.so output_http.so /pkg/
+            cp -r www /pkg/www
+            tar -czf /out/mjpg-streamer-${{ matrix.arch }}.tar.gz --transform "s,^pkg,mjpg-streamer," -C / pkg
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mjpg-streamer-${{ matrix.arch }}
+          path: out/mjpg-streamer-${{ matrix.arch }}.tar.gz
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view mjpg-streamer --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create mjpg-streamer --repo "$GITHUB_REPOSITORY" \
+            --title "mjpg-streamer binaries" \
+            --notes "Prebuilt mjpg-streamer (GPL-2.0, source: https://github.com/jacksonliam/mjpg-streamer) for the light tier. Built on Debian bullseye so it runs on newer systems."
+          gh release upload mjpg-streamer dist/* --repo "$GITHUB_REPOSITORY" --clobber

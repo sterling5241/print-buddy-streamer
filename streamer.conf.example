@@ -1,16 +1,16 @@
 [streamer]
-tier: basic                          # light | basic | full
+tier: basic                          # light | basic | advanced
 moonraker: http://127.0.0.1:7125     # empty = don't add the cameras to Moonraker
 host: auto                           # address put in the camera URLs; auto = this machine's LAN IP
 log_level: info                      # debug | info | warning
 
-# No [cam] sections = every camera found is streamed (light: only the first).
-# device: auto | /dev/v4l/by-id/... | libcamera | rtsp://... (full only)
+# No [cam] sections = every camera found is streamed.
+# device: auto | /dev/v4l/by-id/... | libcamera | rtsp://... (libcamera and rtsp:// need advanced)
 
 [cam 1]
 name: cam1
 device: auto
-port: 8081                           # USB / Pi cameras: http://<host>:8081/stream and /snapshot
+port: 8081                           # basic / advanced: http://<host>:8081/stream and /snapshot, light: http://<host>:8081/?action=stream and ?action=snapshot
 resolution: 1280x720
 fps: 15
-flags:                               # extra ustreamer options (USB / Pi cameras)
+flags:                               # extra options for the camera program (light: input_uvc, basic / advanced: ustreamer)

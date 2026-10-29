@@ -7,9 +7,9 @@ Installed and updated by Printer Buddy's `install.sh`, which also installs the b
 
 | Tier | Cameras | Streams | Backend |
 |---|---|---|---|
-| **light** | 1 USB or Pi camera | MJPEG + snapshot | ustreamer |
-| **basic** | every USB + Pi camera | MJPEG + snapshot, one port per camera | ustreamer |
-| **full** | USB, Pi and network (RTSP / HTTP) cameras | WebRTC, RTSP, MJPEG + snapshot | go2rtc |
+| **light** | USB cameras | MJPEG + snapshot, one port per camera | mjpg-streamer |
+| **basic** | USB cameras | MJPEG + snapshot, one port per camera | ustreamer |
+| **advanced** | USB, Pi and network (RTSP / HTTP) cameras | WebRTC, RTSP, MJPEG + snapshot | ustreamer + go2rtc |
 
 ## Run
 
@@ -24,12 +24,14 @@ Moonraker is running on the same machine.
 
 ## Needs
 
-- light / basic: `ustreamer`, `v4l2-ctl` (v4l-utils); Pi cameras also `libcamerify` (libcamera-tools)
-- full: `go2rtc`, `ffmpeg`; Pi cameras also `rpicam-vid`
+- light: `mjpg_streamer` (prebuilt, from this repo's `mjpg-streamer` release), `libjpeg62-turbo`, `v4l2-ctl` (v4l-utils)
+- basic: `ustreamer`, `v4l2-ctl` (v4l-utils)
+- advanced: `ustreamer`, `v4l2-ctl`, `go2rtc`, `ffmpeg`; Pi cameras also `libcamerify` (libcamera-tools) and `rpicam-vid`
 
 ## URLs
 
 | Tier | Stream | Snapshot |
 |---|---|---|
-| light / basic | `http://<host>:<port>/stream` | `http://<host>:<port>/snapshot` |
-| full | `http://<host>:1984/api/webrtc?src=<name>` (WebRTC), `rtsp://<host>:8554/<name>` | `http://<host>:1984/api/frame.jpeg?src=<name>` |
+| light | `http://<host>:<port>/?action=stream` | `http://<host>:<port>/?action=snapshot` |
+| basic | `http://<host>:<port>/stream` | `http://<host>:<port>/snapshot` |
+| advanced | `http://<host>:1984/api/webrtc?src=<name>` (WebRTC), `rtsp://<host>:8554/<name>` | `http://<host>:1984/api/frame.jpeg?src=<name>` |

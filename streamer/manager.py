@@ -15,8 +15,8 @@ FPS_POLL = 30
 
 def resolve(cfg):
     """[(cam, device)] for the tier: configured cams with 'auto' devices filled in, or one per detected camera."""
-    usb, pi = detect.usb_cameras(), detect.libcamera_count()
-    free = list(usb) + (["libcamera"] if pi else [])
+    pi = detect.libcamera_count() if cfg.tier == "advanced" else 0
+    free = list(detect.usb_cameras()) + (["libcamera"] if pi else [])
     cams = cfg.cams or [Cam(name=f"cam{i + 1}", port=8081 + i) for i in range(len(free))]
     out = []
     for cam in cams:
@@ -28,12 +28,10 @@ def resolve(cfg):
             device = free.pop(0)
         elif device in free:
             free.remove(device)
-        if backends.is_network(device) and cfg.tier != "full":
-            log.warning("%s: network cameras need the full tier, skipped", cam.name)
+        if cfg.tier != "advanced" and (backends.is_network(device) or device == "libcamera"):
+            log.warning("%s: Pi and network cameras need the advanced tier, skipped", cam.name)
             continue
         out.append((cam, device))
-    if cfg.tier == "light":
-        out = out[:1]
     return out
 
 
@@ -44,8 +42,9 @@ def jobs(cfg, config_dir, fps=None):
         return []
     for cam, _ in cams:
         cam.fps = (fps or {}).get(cam.name, cam.fps)
-    out = [backends.ustreamer(cam, device, host) for cam, device in cams if not backends.is_network(device)]
-    if cfg.tier == "full":
+    local = backends.mjpg_streamer if cfg.tier == "light" else backends.ustreamer
+    out = [local(cam, device, host) for cam, device in cams if not backends.is_network(device)]
+    if cfg.tier == "advanced":
         out.append(backends.go2rtc(cams, host, os.path.join(config_dir, "go2rtc.yaml")))
     return out
 

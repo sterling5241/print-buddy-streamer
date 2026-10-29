@@ -1,3 +1,4 @@
+import os
 import shlex
 from dataclasses import dataclass
 
@@ -6,6 +7,7 @@ from . import detect
 GO2RTC_API = 1984
 GO2RTC_RTSP = 8554
 GO2RTC_WEBRTC = 8555
+MJPG_DIR = "/usr/local/lib/print-buddy-streamer/mjpg-streamer"
 
 
 @dataclass
@@ -27,6 +29,19 @@ def ustreamer(cam, device, host):
     cmd += shlex.split(cam.flags)
     base = f"http://{host}:{cam.port}"
     return Job(cam.name, cmd, [(cam.name, "mjpegstreamer-adaptive", f"{base}/stream", f"{base}/snapshot", cam.fps)])
+
+
+def mjpg_streamer(cam, device, host):
+    src = f"input_uvc.so -d {device} -r {cam.resolution} -f {cam.fps}"
+    if not detect.has_mjpeg(device):
+        src += " -y"
+    if cam.flags:
+        src += f" {cam.flags}"
+    # TODO: check the input_uvc flags against a real camera
+    cmd = ["env", f"LD_LIBRARY_PATH={MJPG_DIR}", os.path.join(MJPG_DIR, "mjpg_streamer"), "-i", src,
+           "-o", f"output_http.so -p {cam.port} -w {os.path.join(MJPG_DIR, 'www')}"]
+    base = f"http://{host}:{cam.port}"
+    return Job(cam.name, cmd, [(cam.name, "mjpegstreamer", f"{base}/?action=stream", f"{base}/?action=snapshot", cam.fps)])
 
 
 def is_network(device):

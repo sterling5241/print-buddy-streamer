@@ -2,7 +2,7 @@ import configparser
 from dataclasses import dataclass, field
 from pathlib import Path
 
-TIERS = ("light", "basic", "full")
+TIERS = ("light", "basic", "advanced")
 _tier_file = Path(__file__).with_name("TIER")
 BUILT_TIER = _tier_file.read_text().strip() if _tier_file.exists() else None
 
